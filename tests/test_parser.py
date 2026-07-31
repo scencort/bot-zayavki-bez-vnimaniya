@@ -1,5 +1,6 @@
 import unittest
 
+from app.main import parse_realtor_input
 from app.parser import extract_realtor_leads
 
 
@@ -53,6 +54,14 @@ https://kosmos.example/leads/123
 """
         result = extract_realtor_leads(document_text, "Рогулин Роман Александрович")
         self.assertEqual(result.links, [])
+
+    def test_parse_realtor_input_with_telegram_id(self) -> None:
+        result = parse_realtor_input("Иванов Иван Иванович - 123456789")
+        self.assertEqual(result, ("Иванов Иван Иванович", "123456789"))
+
+    def test_parse_realtor_input_without_telegram_id(self) -> None:
+        result = parse_realtor_input("Иванов Иван Иванович - пока нет ID")
+        self.assertEqual(result, ("Иванов Иван Иванович", None))
 
 
 if __name__ == "__main__":

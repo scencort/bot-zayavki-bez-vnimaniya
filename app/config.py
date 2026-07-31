@@ -9,6 +9,7 @@ from pathlib import Path
 DEFAULT_ENV_PATHS = (Path(".env"), Path(".env.example"))
 DEFAULT_REALTORS_PATH = Path("config/realtors.json")
 DEFAULT_SUBSCRIBERS_PATH = Path("data/subscribers.json")
+DEFAULT_ADMIN_STATE_PATH = Path("data/admin_state.json")
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class AppConfig:
     admin_ids: set[str]
     realtors_path: Path
     subscribers_path: Path
+    admin_state_path: Path
     poll_interval_seconds: int = 3
 
 
@@ -60,6 +62,9 @@ def load_config() -> AppConfig:
         subscribers_path=Path(
             os.getenv("SUBSCRIBERS_PATH", DEFAULT_SUBSCRIBERS_PATH)
         ),
+        admin_state_path=Path(
+            os.getenv("ADMIN_STATE_PATH", DEFAULT_ADMIN_STATE_PATH)
+        ),
         poll_interval_seconds=int(os.getenv("POLL_INTERVAL_SECONDS", "3")),
     )
 
@@ -85,6 +90,17 @@ def load_realtor_bindings(path: Path) -> list[RealtorBinding]:
     return bindings
 
 
+def save_realtor_bindings(path: Path, bindings: list[RealtorBinding]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "realtors": [
+            _binding_to_dict(binding)
+            for binding in bindings
+        ]
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def parse_csv_set(raw_value: str) -> set[str]:
     return {item.strip() for item in raw_value.split(",") if item.strip()}
 
@@ -104,3 +120,14 @@ def load_env_files() -> None:
             value = value.strip().strip('"').strip("'")
             if key and key not in os.environ:
                 os.environ[key] = value
+
+
+def _binding_to_dict(binding: RealtorBinding) -> dict[str, str]:
+    result: dict[str, str] = {"full_name": binding.full_name}
+    if binding.telegram_id:
+        result["telegram_id"] = binding.telegram_id
+    if binding.delivery_mode != "links":
+        result["delivery_mode"] = binding.delivery_mode
+    if binding.custom_message:
+        result["custom_message"] = binding.custom_message
+    return result
