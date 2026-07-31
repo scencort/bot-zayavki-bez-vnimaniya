@@ -127,16 +127,15 @@ def handle_start(
     update: TelegramUpdate,
 ) -> None:
     binding = find_binding_by_chat_id(bindings, update.chat_id)
+    subscriber: Subscriber | None = None
     if binding is not None:
-        upsert_subscriber(
-            config.subscribers_path,
-            Subscriber(
-                chat_id=update.chat_id,
-                realtor_name=binding.full_name,
-                username=update.username,
-                first_name=update.first_name,
-            ),
+        subscriber = Subscriber(
+            chat_id=update.chat_id,
+            realtor_name=binding.full_name,
+            username=update.username,
+            first_name=update.first_name,
         )
+        upsert_subscriber(config.subscribers_path, subscriber)
 
     is_admin = update.chat_id in config.admin_ids
     send_message(
@@ -145,6 +144,9 @@ def handle_start(
         format_start_message(binding, is_admin),
         reply_keyboard=build_keyboard(is_admin),
     )
+
+    if binding is not None and subscriber is not None:
+        notify_admins_about_authorization(config, subscriber)
 
 
 def broadcast_updates(
@@ -256,6 +258,24 @@ def format_broadcast_result_message(delivered_recipients: list[str]) -> str:
 
 def format_broadcast_recipient(subscriber: Subscriber, realtor_name: str) -> str:
     return f"{realtor_name} -> {format_subscriber_identity(subscriber)}"
+
+
+def notify_admins_about_authorization(
+    config: AppConfig,
+    subscriber: Subscriber,
+) -> None:
+    message = format_admin_authorization_message(subscriber)
+    for admin_id in config.admin_ids:
+        send_message(config.telegram_bot_token, admin_id, message)
+
+
+def format_admin_authorization_message(subscriber: Subscriber) -> str:
+    lines = [
+        "Новая авторизация в боте.",
+        f"Риэлтор: {subscriber.realtor_name}",
+        f"Telegram: {format_subscriber_identity(subscriber)}",
+    ]
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
